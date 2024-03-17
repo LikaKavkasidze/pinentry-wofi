@@ -1,0 +1,85 @@
+#!/bin/sh
+
+# pinentry-wofi – Bash script allowing to use Wofi as pinentry frontend
+# Copyright (C) 2024 Lika Kavkasidze
+# Original copyright (C) 2022 Amlesh Sivanantham
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# Debug mode: log all commands received to `/tmp/pinentry-wofi`
+# Be careful: this will also log all passwords typed
+DEBUG="FALSE"
+
+debug_echo() {
+	if [ "$DEBUG" = "TRUE" ]; then
+		echo "$1" >> /tmp/pinentry-wofi
+	fi
+}
+
+debug_echo "Starting… ($UID)"
+echo "OK Please go ahead"
+
+while read cmd extra; do
+	debug_echo "$cmd ($extra)"
+
+	# Ignore empty lines
+	if [ -z "$cmd" ]; then
+		continue;
+	fi
+
+	case "$cmd" in
+		GETINFO)
+			# Implement options queried by gpg-agent
+			case "$extra" in
+				flavor)
+					echo "D wofi"
+					echo "OK"
+					;;
+				version)
+					echo "D 1.0.0"
+					echo "OK"
+					;;
+				ttyinfo)
+					echo "D - - -"
+					echo "OK"
+					;;
+				pid)
+					echo "D $$"
+					echo "OK"
+					;;
+			esac
+			;;
+		GETPIN)
+			# Echoing nothing allows wofi to display properly
+			# Piping errors to /dev/null avoids sending garbage
+			_user_pin=$( echo "" | wofi --dmenu --password --lines 1 2> /dev/null )
+
+			debug_echo "User entered: $_user_pin"
+			if [ -n $_user_pin ]; then
+				echo "D $_user_pin"
+			fi
+
+			echo "OK"
+			;;
+		BYE)
+			debug_echo "Exiting…"
+			echo "OK closing"
+			exit 0
+			;;
+		*)
+			echo "OK"
+			;;
+	esac
+done
+
